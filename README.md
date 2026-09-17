@@ -64,7 +64,7 @@ ct.tl.score(adata, tree, nodes=["CL:0000057"])           # raw signature scores 
 ct.pl.tree(tree); ct.pl.composition(adata); ct.pl.scores(adata, tree=tree); ct.pl.markers(adata, tree)
 
 ref = ct.bm.reference(adata, "cell_type", {"Tumor Cells": "CL:0001064", ...}, tree)   # expert labels -> tree nodes
-ct.bm.compare(adata, ref, tree, methods=("hier", "flat", "cluster"))                   # one metrics row per method
+ct.bm.compare(adata, ref, tree, methods=("hier", "flat", "rule", "cluster"))                   # one metrics row per method
 ct.pl.confusion(ct.bm.confusion(adata, ref, tree, key="hier"))
 ```
 
@@ -77,7 +77,7 @@ celltyping build-knowledge --tissue ovary \
     --panel /path/to/gene_panel.json --overrides configs/overrides_ovary.yaml --out results/ovary/knowledge \
     [--no-census] [--census-version 2025-01-30] [--sources CellMarker2,PanglaoDB,ASCT+B,CellGuide]
 celltyping show-tree results/ovary/knowledge/ovary_tree.json
-celltyping annotate --config configs/ovarian_xenium.yaml --dataset ov_validation --methods hier,flat,cluster [--subsample 20000]
+celltyping annotate --config configs/ovarian_xenium.yaml --dataset ov_validation --methods hier,flat,rule,cluster [--subsample 20000]
 celltyping benchmark --config configs/ovarian_xenium.yaml --dataset ov_validation   # vs expert obs['cell_type']
 ```
 
@@ -97,7 +97,7 @@ annotate_flat, annotate_clusters}`, `celltyping.benchmark.*`.
 - `src/celltyping/knowledge/` ontology access (`ontology.py`), marker sources (`markers.py`), CZ CELLxGENE Census +
   CellGuide (`cellxgene.py`), tree (`tree.py`), builder (`build.py`)
 - `src/celltyping/io.py`, `preprocess.py` readers and shared QC/normalisation
-- `src/celltyping/methods/` `hierarchical.py`, `flat.py`, `cluster.py`, shared `scoring.py`
+- `src/celltyping/methods/` `hierarchical.py`, `flat.py`, `rule_based.py`, `cluster.py`, shared `scoring.py`
 - `src/celltyping/pipeline.py`, `cli.py` config-driven runs
 - `src/celltyping/benchmark/` reference harmonisation (`harmonize.py`), metrics, figures/report, driver (`run.py`)
 - `configs/` run config and override file for the ovarian example (`ovarian_xenium.yaml`, `overrides_ovary.yaml`; `overrides_brain.yaml` is a second curation example)

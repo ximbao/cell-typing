@@ -17,19 +17,19 @@ labelled `low_quality`.
 | `tissue` | `None` | Uberon term name or id (`"ovary"`, `"cerebral cortex"`, `"UBERON:0002048"`). Required unless `tree` is given. Resolves through Uberon synonyms; ambiguous names are logged with the alternatives (`celltyping search-tissue <name>` lists them). |
 | `species` | `settings.species` (`"human"`) | `"human"` or `"mouse"`. Selects marker-database species, CellGuide organism and the Census organism, and removes the other species' provisional CL terms. |
 | `tree` | `None` | A prebuilt `CellTypeTree` or a path to a saved `*_tree.json`; skips the knowledge build. |
-| `method` | `"hierarchical"` | `"hierarchical"` (top-down through the tree), `"flat"` (all leaves scored at once, prior-knowledge baseline), `"cluster"` (Leiden + DE + marker overlap, clustering baseline). |
+| `method` | `"hierarchical"` | `"hierarchical"` (top-down through the tree), `"flat"` (all leaves scored at once, prior-knowledge baseline), `"cluster"` (Leiden + DE + marker overlap, clustering baseline), `"rule_based"` (fixed panels: all genes must have count > 0; winner = highest raw-count sum). |
 | `overrides` | `None` | YAML file (or `Overrides` object) with curated tree edits: `add_cell_types`, `remove_cell_types`, `collapse_cell_types`, `parents`, `markers` (`add`/`remove`/`replace` per CL id), `custom_markers` (CSV). |
 | `preprocess` | `"auto"` | `"auto"`: normalise only if `X` looks like raw integer counts; `True`/`False` force it. Gene harmonisation and the QC flag are always applied when missing. |
 | `min_counts` | `20` | QC threshold: cells with `transcript_counts < min_counts` are flagged `low_quality` and excluded from smoothing, scoring and the benchmark. Uses `obs['transcript_counts']` (Xenium metadata when present, otherwise the sum of `X` / `layers['counts']`). Xenium's `total_counts` (gene + codewords) is not used. |
 | `max_control_frac` | `0.3` | Negative-control fraction threshold (`qc_reason='high_control_frac'`). `None` disables. |
-| `knn_smooth` | `15` | Number of expression neighbours (PCA space, high-quality cells only) whose log-expression is averaged with each cell before scoring; stored in `layers["knn_smooth"]`. `None`/`0` disables smoothing. Ignored if the layer already exists. |
+| `knn_smooth` | `15` | Number of expression neighbours (PCA space, high-quality cells only) whose log-expression is averaged with each cell before scoring; stored in `layers["knn_smooth"]`. `None`/`0` disables smoothing. Ignored if the layer already exists. **Disabled for `rule_based`** (uses raw counts). |
 | `min_score` | `0.5` | Minimum signature score (in null-SD units, see below) for a cell type to be called. Below it a cell is `unassigned` (flat) or stays at the current node (hierarchical). |
 | `min_margin` | `0.25` | Minimum difference between the best and the second-best candidate (and, in the hierarchy, between the best child and the parent's own signature). Controls how readily cells descend to leaves. |
 | `top_k` | `30` | Markers per cell type used in the signature (highest weights first). `None` uses all panel markers. |
-| `key` | method-dependent | Prefix of the result columns: `"hier"`, `"flat"` or `"cluster"`. |
+| `key` | method-dependent | Prefix of the result columns: `"hier"`, `"flat"`, `"rule"` or `"cluster"`. |
 | `knowledge_kwargs` | `None` | Extra arguments for `ct.tl.knowledge`: `min_markers` (default 5), `max_depth` (5), `ancestor_levels` (1), `min_db_sources` (2), `census`, `census_disease` (`"normal"`/`"any"`), `census_min_cells`, `census_min_datasets`, `census_min_frac`, `sources`, `force`, `cache`, `out_dir`. |
 | `copy` | `False` | Work on a copy and return it. |
-| `**method_kwargs` | | Forwarded to `ct.tl.hierarchical` / `ct.tl.flat` / `ct.tl.clusters`, e.g. `subtree_mode="max"`, `parent_as_competitor=False`, `smooth={"k": 10, "min_frac": 0.6}`, `scale="z"`, `top_frac=0.34`, `level="all"`, `resolutions=(0.5, 1.0)`. |
+| `**method_kwargs` | | Forwarded to `ct.tl.hierarchical` / `ct.tl.flat` / `ct.tl.clusters` / `ct.tl.rule_based`, e.g. `subtree_mode="max"`, `parent_as_competitor=False`, `smooth={"k": 10, "min_frac": 0.6}`, `scale="z"`, `top_frac=0.34`, `level="all"`, `resolutions=(0.5, 1.0)`, `n_markers=4`, `markers_dict={...}`. |
 
 ### How a score is computed
 
@@ -83,6 +83,21 @@ well-characterised leaf markers.
 | `obs["flat_score"]`, `obs["flat_margin"]` | its score and the gap to the runner-up |
 | `obsm["flat_scores"]` | scores of all candidates for all cells |
 | `uns["flat_params"]` | parameters, incl. `level` (`"leaves"`, `"all"` or an integer depth) and `n_candidates` |
+
+
+## Annotation output: `method="rule_based"` (prefix `rule`)
+
+Panel rule: for each cell type, the top `n_markers` genes from the knowledge tree (or a custom `markers_dict`) form a
+panel. A cell **qualifies** for a panel only if **every** gene in the panel has raw count > 0. Among qualifying panels,
+the winner is the one with the **highest sum of raw counts**; ties break by panel order. Cells with no qualifying panel
+are `unassigned`. Uses `layers['counts']` when present (after preprocessing), otherwise `X`. kNN smoothing is not applied.
+
+| column | meaning |
+|--------|---------|
+| `obs["rule_label"]`, `obs["rule_id"]` | winning panel label / CL id (`unassigned` / `low_quality`) |
+| `obs["rule_score"]` | sum of raw counts for the winning panel (NaN if unassigned) |
+| `obsm["rule_scores"]` | raw count sums per panel (0 where the panel did not qualify) |
+| `uns["rule_params"]` | parameters, panel gene lists and the rule description |
 
 ## Annotation output: `method="cluster"` (prefix `cluster`)
 

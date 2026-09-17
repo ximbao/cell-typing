@@ -27,6 +27,7 @@ from .methods.cluster import annotate_clusters as _clusters
 from .methods.cluster import apply_manual_labels  # noqa: F401
 from .methods.flat import annotate_flat as _flat
 from .methods.hierarchical import annotate_hierarchical as _hier
+from .methods.rule_based import annotate_rule_based as _rule
 from .methods.hierarchical import summarize_levels  # noqa: F401
 from .methods.scoring import score_sets, smooth_labels  # noqa: F401
 from .preprocess import LOW_QUALITY, qc_mask
@@ -224,6 +225,16 @@ def flat(adata: ad.AnnData, tree: CellTypeTree, level: str | int = "leaves", met
     return adata
 
 
+def rule_based(adata: ad.AnnData, tree: CellTypeTree, level: str | int = "leaves", n_markers: int = 4,
+               markers_dict: dict[str, list[str]] | None = None, top_k: int | None = None, key: str = "rule") -> ad.AnnData:
+    """Fixed-panel rule: all panel genes must have raw count > 0; winner = highest sum of counts among qualifying panels.
+
+    Results: ``obs[key+'_label'|'_id'|'_score']``, ``obsm[key+'_scores']``. Uses ``layers['counts']`` when present."""
+    _on_high_quality(adata, lambda a: _rule(a, tree, level=level, n_markers=n_markers, markers_dict=markers_dict,
+                                            top_k=top_k, key=key), key=key)
+    return adata
+
+
 def clusters(adata: ad.AnnData, tree: CellTypeTree, resolutions: tuple[float, ...] = (0.5, 1.0), level: str | int = "leaves",
              min_score: float = 0.2, min_margin: float = 0.1, n_top_de: int = 25, top_k: int | None = 50, key: str = "cluster",
              random_state: int | None = None) -> dict[str, pd.DataFrame]:
@@ -250,5 +261,5 @@ def score(adata: ad.AnnData, tree: CellTypeTree, nodes: list[str] | None = None,
     return adata.obsm[key]
 
 
-__all__ = ["knowledge", "get_tree", "expected_cell_types", "hierarchical", "flat", "clusters", "score", "summarize_levels", "smooth_labels",
-           "apply_manual_labels"]
+__all__ = ["knowledge", "get_tree", "expected_cell_types", "hierarchical", "flat", "rule_based", "clusters", "score",
+           "summarize_levels", "smooth_labels", "apply_manual_labels"]

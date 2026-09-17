@@ -18,7 +18,7 @@ from .harmonize import reference_ids
 from .metrics import agreement, label_entropy, marker_specificity, spatial_coherence
 from .report import plot_confusion, plot_spatial, plot_summary, write_markdown
 
-METHOD_PATTERNS = {"hier": r"^hier_id$", "flat": r"^flat_id$", "cluster": r"^cluster_r[\d.]+_id$"}
+METHOD_PATTERNS = {"hier": r"^hier_id$", "flat": r"^flat_id$", "rule": r"^rule_id$", "cluster": r"^cluster_r[\d.]+_id$"}
 
 
 def prediction_columns(adata: ad.AnnData, methods: tuple[str, ...]) -> dict[str, str]:

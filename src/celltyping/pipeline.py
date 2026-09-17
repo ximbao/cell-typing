@@ -114,6 +114,12 @@ def annotate_dataset(adata: ad.AnnData, tree: CellTypeTree, cfg: dict, methods: 
         tl.flat(adata, tree, level=f.get("level", "leaves"), method=method, min_score=f.get("min_score", 0.5),
                 min_margin=f.get("min_margin", 0.25), top_k=top_k, layer=layer, **sk)
         timings["flat"] = time.perf_counter() - t0
+    if "rule" in methods or "rule_based" in methods:
+        t0 = time.perf_counter()
+        r = acfg.get("rule_based", acfg.get("rule", {}))
+        tl.rule_based(adata, tree, level=r.get("level", "leaves"), n_markers=r.get("n_markers", 4),
+                      markers_dict=r.get("markers_dict"), top_k=r.get("top_k"), key="rule")
+        timings["rule"] = time.perf_counter() - t0
     if "cluster" in methods:
         t0 = time.perf_counter()
         c = acfg.get("cluster", {})

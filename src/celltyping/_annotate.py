@@ -33,7 +33,7 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
        counts also ``normalize_total`` + ``log1p`` (counts kept in ``layers['counts']``); then kNN expression smoothing
        over high-quality cells (``layers['knn_smooth']``).
     3. **annotate** -- ``'hierarchical'`` (default; top-down through the tree), ``'flat'`` (all leaves at once)
-       or ``'cluster'`` (Leiden + DE + marker overlap).
+       ``'cluster'`` (Leiden + DE + marker overlap) or ``'rule_based'`` (fixed panels: all genes > 0, highest raw-count sum).
 
     Parameters
     ----------
@@ -46,7 +46,7 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
     tree
         A prebuilt :class:`CellTypeTree` or path to a saved ``*_tree.json``; overrides ``tissue``.
     method
-        ``'hierarchical'`` | ``'flat'`` | ``'cluster'``.
+        ``'hierarchical'`` | ``'flat'`` | ``'cluster'`` | ``'rule_based'``.
     overrides
         YAML with curated tree/marker edits (see ``configs/overrides_*.yaml``).
     preprocess
@@ -62,8 +62,9 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
         or when ``layers['knn_smooth']`` is absent.
     min_score, min_margin, top_k, **method_kwargs
         Forwarded to :func:`celltyping.tl.hierarchical` / :func:`celltyping.tl.flat` / :func:`celltyping.tl.clusters`.
+        For ``rule_based``: ``n_markers`` (default 4), ``markers_dict``, ``level``, ``top_k``.
     key
-        ``obs`` prefix for results (default ``'hier'``, ``'flat'`` or ``'cluster'``).
+        ``obs`` prefix for results (default ``'hier'``, ``'flat'``, ``'cluster'`` or ``'rule'``).
     knowledge_kwargs
         Extra arguments for :func:`celltyping.tl.knowledge` (``min_markers``, ``max_depth``, ``census``, ``sources``, ...).
     copy
@@ -80,10 +81,12 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
     if copy:
         adata = adata.copy()
     species = species or settings.species
-    if method not in ("hierarchical", "flat", "cluster"):
-        raise ValueError("method must be 'hierarchical', 'flat' or 'cluster'")
+    if method not in ("hierarchical", "flat", "cluster", "rule_based"):
+        raise ValueError("method must be 'hierarchical', 'flat', 'cluster' or 'rule_based'")
 
     # 1. preprocessing (before the tree so that the panel reflects the harmonised gene symbols)
+    if method == "rule_based" and knn_smooth:
+        knn_smooth = None
     if preprocess == "auto":
         preprocess = pp.is_raw_counts(adata)
         log.info("X %s raw counts -> preprocessing %s", "looks like" if preprocess else "does not look like", "on" if preprocess else "off")
@@ -121,6 +124,11 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
     elif method == "flat":
         key = key or "flat"
         tl.flat(adata, tree, min_score=min_score, min_margin=min_margin, top_k=top_k, key=key, **method_kwargs)
+    elif method == "rule_based":
+        key = key or "rule"
+        rk = {"n_markers": 4, "level": "leaves", "markers_dict": None, "top_k": None}
+        rk.update({k: v for k, v in method_kwargs.items() if k in ("n_markers", "level", "markers_dict", "top_k")})
+        tl.rule_based(adata, tree, key=key, **rk)
     else:
         key = key or "cluster"
         mk = {"min_score": 0.2, "min_margin": 0.1, "top_k": 50, **method_kwargs}

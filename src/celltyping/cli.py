@@ -105,7 +105,7 @@ def show_tree(tree_json: Path, markers: int = 8, all_markers: bool = typer.Optio
 def annotate(
     config: Path = typer.Option(..., help="Run config YAML (see configs/)"),
     dataset: Optional[str] = typer.Option(None, help="Only this dataset name from the config"),
-    methods: str = typer.Option("hier,flat,cluster", help="Comma-separated subset of hier,flat,cluster"),
+    methods: str = typer.Option("hier,flat,rule,cluster", help="Comma-separated subset of hier,flat,rule,cluster"),
     subsample: Optional[int] = typer.Option(None, help="Random subsample of cells (for quick tests)"),
     force_knowledge: bool = typer.Option(False, help="Rebuild the knowledge tree even if cached"),
 ):
@@ -123,7 +123,7 @@ def annotate(
 def benchmark(
     config: Path = typer.Option(..., help="Run config YAML with a 'benchmark' section (reference_column, reference_map)"),
     dataset: str = typer.Option(..., help="Dataset name from the config"),
-    methods: str = typer.Option("hier,flat,cluster", help="Comma-separated subset of hier,flat,cluster"),
+    methods: str = typer.Option("hier,flat,rule,cluster", help="Comma-separated subset of hier,flat,rule,cluster"),
     subsample: Optional[int] = typer.Option(None, help="Random subsample of cells (forces a fresh annotation run)"),
     no_reuse: bool = typer.Option(False, help="Re-annotate even if results/<dataset>/annotated.h5ad exists"),
     force_knowledge: bool = typer.Option(False, help="Rebuild the knowledge tree even if cached"),
