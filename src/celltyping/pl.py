@@ -198,23 +198,34 @@ def confusion(conf: pd.DataFrame, ax=None, normalize: str = "row", title: str = 
 
 
 def markers(adata: ad.AnnData, tree: CellTypeTree, groupby: str = "hier_label", n_markers: int = 4, layer: str | None = "auto",
-            save=None, **kwargs):
-    """Dot-plot of the top tree markers of each predicted type, grouped by ``obs[groupby]`` (uses ``scanpy.pl.dotplot``)."""
+            save=None, show: bool | None = None, return_fig: bool = False, **kwargs):
+    """Dot-plot of the top tree markers of each predicted type, grouped by ``obs[groupby]`` (uses ``scanpy.pl.dotplot``).
+
+    Low-quality / unassigned cells are left out. Returns the main ``Axes`` (or the scanpy ``DotPlot`` with
+    ``return_fig=True``); ``show=True`` calls ``plt.show()``."""
     import scanpy as sc
 
     layer = ("knn_smooth" if "knn_smooth" in adata.layers else None) if layer == "auto" else layer
-    present = set(adata.obs[groupby].astype(str))
+    keep = ~adata.obs[groupby].astype(str).isin([UNASSIGNED, LOW_QUALITY]).to_numpy()
+    sub = adata[keep] if not keep.all() else adata
+    present = set(sub.obs[groupby].astype(str))
     var_groups = {}
     for n in tree.iter_bfs():
         if n.label in present:
             pm = sorted(n.panel_markers.values(), key=lambda m: -m.weight)
-            genes = [m.gene for m in pm[:n_markers] if m.gene in adata.var_names]
+            genes = [m.gene for m in pm[:n_markers] if m.gene in sub.var_names]
             if genes:
                 var_groups[n.label] = genes
-    dp = sc.pl.dotplot(adata, var_groups, groupby=groupby, layer=layer, show=False, return_fig=True, **kwargs)
+    if not var_groups:
+        raise ValueError(f"no predicted type in obs['{groupby}'] has panel markers in the tree")
+    kwargs.setdefault("categories_order", list(var_groups))  # rows in the same (tree) order as the marker groups -> diagonal
+    dp = sc.pl.dotplot(sub, var_groups, groupby=groupby, layer=layer, show=False, return_fig=True, **kwargs)
+    dp.make_figure()  # actually draw; sc.pl.dotplot(return_fig=True) only builds the object
     if save:
         dp.savefig(save, dpi=150, bbox_inches="tight")
-    return dp
+    if show:
+        plt.show()
+    return dp if return_fig else dp.get_axes()["mainplot_ax"]
 
 
 __all__ = ["tree", "spatial", "composition", "scores", "confusion", "markers", "palette"]
