@@ -79,6 +79,24 @@ def test_qc_flag_propagates(toy_adata, toy_tree):
     assert a.obs["hier_score"].notna().sum() > 0
 
 
+def test_qc_xenium_control_counts_not_all_codewords(toy_adata):
+    import anndata as ad
+    import numpy as np
+    a = ad.AnnData(X=np.array([[50, 0], [50, 0], [5, 0]], dtype=float),
+                   obs=pd.DataFrame({
+                       "transcript_counts": [369.0, 295.0, 5.0],
+                       "control_probe_counts": [2, 2, 0],
+                       "genomic_control_counts": [0, 0, 0],
+                       "unassigned_codeword_counts": [58, 47, 0],
+                       "deprecated_codeword_counts": [0, 0, 0],
+                   }))
+    # user mistake: summing every Xenium control column into control_counts over-flags high-count cells
+    a.obs["control_counts"] = a.obs.filter(regex="control|unassigned|deprecated").sum(axis=1)
+    ct.pp.qc(a, min_counts=10)
+    assert a.obs["qc_pass"].tolist() == [True, True, False]
+    assert a.obs["qc_reason"].tolist() == ["pass", "pass", "low_counts"]
+
+
 def test_qc_duplicate_obs_names(toy_adata, toy_tree):
     a = _counts_adata(toy_adata)
     a.X[:10] = 0

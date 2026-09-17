@@ -13,7 +13,7 @@ import scipy.sparse as sp
 
 from .preprocess import embed  # noqa: F401
 from .preprocess import harmonize_var_names as harmonize_genes  # noqa: F401
-from .preprocess import HIGH_QUALITY, LOW_QUALITY, QC_FLAG, QC_PASS, knn_smooth, normalize, qc_mask  # noqa: F401
+from .preprocess import HIGH_QUALITY, LOW_QUALITY, QC_FLAG, QC_PASS, QC_REASON, knn_smooth, normalize, qc_mask  # noqa: F401
 from .preprocess import qc_filter as qc  # noqa: F401
 from .utils import log
 
@@ -60,4 +60,4 @@ def preprocess(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_
 
 
 __all__ = ["qc", "qc_mask", "normalize", "harmonize_genes", "knn_smooth", "embed", "is_raw_counts", "preprocess",
-           "QC_PASS", "QC_FLAG", "HIGH_QUALITY", "LOW_QUALITY"]
+           "QC_PASS", "QC_FLAG", "QC_REASON", "HIGH_QUALITY", "LOW_QUALITY"]

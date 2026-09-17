@@ -130,7 +130,8 @@ def save_outputs(adata: ad.AnnData, cfg: dict, ds_name: str) -> Path:
     # tables first (robust even if h5ad write fails on odd dtypes)
     label_cols = [c for c in adata.obs.columns if c.endswith("_label") or c.startswith("hier_level") or c.endswith("_id") or c.endswith("_depth")]
     ref_col = cfg.get("benchmark", {}).get("reference_column")
-    extra = [c for c in ("x_centroid", "y_centroid", "total_counts", "qc_flag", ref_col) if c and c in adata.obs and c not in label_cols]
+    extra = [c for c in ("x_centroid", "y_centroid", "gene_counts", "total_counts", "transcript_counts", "qc_flag", "qc_reason", ref_col)
+             if c and c in adata.obs and c not in label_cols]
     tab = adata.obs[label_cols + extra].copy()
     if "x_centroid" not in tab and "spatial" in adata.obsm:
         tab["x_centroid"], tab["y_centroid"] = adata.obsm["spatial"][:, 0], adata.obsm["spatial"][:, 1]

@@ -12,31 +12,49 @@ from .utils import log, norm_gene
 
 QC_PASS = "qc_pass"
 QC_FLAG = "qc_flag"
+QC_REASON = "qc_reason"
 HIGH_QUALITY = "high_quality"
 LOW_QUALITY = "low_quality"
+# Xenium cells.parquet / h5ad metadata: only true negative controls count towards the fraction threshold.
+# Unassigned / deprecated codewords are common at 10-15% and are not a per-cell QC failure on their own.
+XENIUM_NEG_CTRL = ("control_probe_counts", "genomic_control_counts")
+
+
+def _qc_control_counts(adata: ad.AnnData) -> np.ndarray | None:
+    """Per-cell negative-control counts for the QC fraction (``None`` -> skip the control check)."""
+    if all(c in adata.obs for c in XENIUM_NEG_CTRL):
+        return (adata.obs["control_probe_counts"].to_numpy(dtype=float)
+                + adata.obs["genomic_control_counts"].to_numpy(dtype=float))
+    if "control_counts" in adata.obs:
+        return adata.obs["control_counts"].to_numpy(dtype=float)
+    return None
 
 
 def qc_filter(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.1,
               min_cell_area: float | None = None, max_cell_area: float | None = None, filter: bool = False) -> ad.AnnData:
     """Per-cell QC for imaging-based ST: **flags** cells instead of removing them.
 
-    Adds ``obs['qc_pass']`` (bool) and ``obs['qc_flag']`` (``'high_quality'`` / ``'low_quality'``). A cell is low
-    quality when ``total_counts < min_counts`` (default 20 transcripts), when it has fewer than ``min_genes`` detected
-    genes, when control probes make up more than ``max_control_frac`` of its counts, or when its area is outside
-    ``[min_cell_area, max_cell_area]``. Downstream steps (kNN smoothing, all annotators, the benchmark) use only
-    high-quality cells; low-quality cells receive the label ``'low_quality'``. With ``filter=True`` the low-quality
-    cells are removed instead and a subset is returned.
+    Adds ``obs['qc_pass']`` (bool), ``obs['qc_flag']`` (``'high_quality'`` / ``'low_quality'``) and ``obs['qc_reason']``
+    (``'pass'``, ``'low_counts'``, ``'few_genes'``, ``'high_control_frac'``, ``'cell_area'``). A cell is low quality
+    when ``total_counts < min_counts`` (default 20 **gene** transcripts in ``X``), when it has fewer than ``min_genes``
+    detected genes, when **negative** control probes make up more than ``max_control_frac`` of gene + control counts
+    (on Xenium data only ``control_probe_counts`` + ``genomic_control_counts`` are used -- not unassigned/deprecated
+    codewords, which are often 10-15% and do not mean the cell is bad), or when its area is outside
+    ``[min_cell_area, max_cell_area]``. Downstream steps use only high-quality cells; low-quality cells receive the
+    label ``'low_quality'``. With ``filter=True`` the low-quality cells are removed instead.
 
-    Counts are taken from ``layers['counts']`` when ``X`` is already normalised, so the flag can be (re)computed at
-    any point of the workflow.
+    ``obs['gene_counts']`` is always set to the per-cell gene total used for ``min_counts`` (``transcript_counts`` when
+    present on Xenium objects, otherwise the sum of ``X`` / ``layers['counts']``). Existing Xenium ``total_counts``
+    metadata (gene + control codewords) is left unchanged.
     """
     n0 = adata.n_obs
     normalised = "normalized" in adata.uns or "log1p" in adata.uns
     if "counts" in adata.layers:
         src = adata.layers["counts"]
-    elif normalised and "total_counts" in adata.obs:
-        src = None  # no counts matrix: rely on the existing per-cell totals
-        log.info("QC: X is normalised and no counts layer is present; using obs['total_counts']")
+    elif normalised and ("transcript_counts" in adata.obs or "total_counts" in adata.obs):
+        src = None
+        _gc = "transcript_counts" if "transcript_counts" in adata.obs else "total_counts"
+        log.info("QC: X is normalised and no counts layer is present; using obs['%s']", _gc)
     else:
         if normalised:
             log.warning("QC: X looks normalised and neither layers['counts'] nor obs['total_counts'] exist; totals are computed from X")
@@ -44,26 +62,47 @@ def qc_filter(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_c
     if src is not None:
         total = np.asarray(src.sum(axis=1)).ravel()
         n_genes = np.asarray((src > 0).sum(axis=1)).ravel()
-        adata.obs["total_counts"] = total
         adata.obs["n_genes_by_counts"] = n_genes
+        if "transcript_counts" not in adata.obs:
+            adata.obs["total_counts"] = total
     else:
-        total = adata.obs["total_counts"].to_numpy(dtype=float)
+        total = (adata.obs["transcript_counts"].to_numpy(dtype=float) if "transcript_counts" in adata.obs
+                 else adata.obs["total_counts"].to_numpy(dtype=float))
         n_genes = adata.obs["n_genes_by_counts"].to_numpy() if "n_genes_by_counts" in adata.obs else np.asarray((adata.X > 0).sum(axis=1)).ravel()
-    keep = (total >= min_counts) & (n_genes >= min_genes)
-    reasons = {"low_counts": int((total < min_counts).sum()), "few_genes": int((n_genes < min_genes).sum())}
-    if "control_counts" in adata.obs:
-        frac = adata.obs["control_counts"].to_numpy() / np.clip(total + adata.obs["control_counts"].to_numpy(), 1, None)
+    gene_counts = adata.obs["transcript_counts"].to_numpy(dtype=float) if "transcript_counts" in adata.obs else total
+    adata.obs["gene_counts"] = gene_counts
+    low_counts = gene_counts < min_counts
+    few_genes = n_genes < min_genes
+    keep = ~low_counts & ~few_genes
+    reason = np.full(n0, "pass", dtype=object)
+    reason[low_counts] = "low_counts"
+    reason[few_genes & ~low_counts] = "few_genes"
+    reasons = {"low_counts": int(low_counts.sum()), "few_genes": int(few_genes.sum())}
+    ctrl = _qc_control_counts(adata)
+    if ctrl is not None and max_control_frac is not None:
+        denom = np.clip(gene_counts + ctrl, 1, None)
+        frac = ctrl / denom
         adata.obs["control_frac"] = frac
-        keep &= frac <= max_control_frac
-        reasons["control_probes"] = int((frac > max_control_frac).sum())
+        bad_ctrl = frac > max_control_frac
+        keep &= ~bad_ctrl
+        reasons["control_probes"] = int(bad_ctrl.sum())
+        reason[bad_ctrl & (reason == "pass")] = "high_control_frac"
     if min_cell_area is not None and "cell_area" in adata.obs:
-        keep &= adata.obs["cell_area"].to_numpy() >= min_cell_area
+        bad = adata.obs["cell_area"].to_numpy() < min_cell_area
+        keep &= ~bad
+        reason[bad & (reason == "pass")] = "cell_area"
+        reasons["cell_area"] = int(bad.sum())
     if max_cell_area is not None and "cell_area" in adata.obs:
-        keep &= adata.obs["cell_area"].to_numpy() <= max_cell_area
+        bad = adata.obs["cell_area"].to_numpy() > max_cell_area
+        keep &= ~bad
+        reason[bad & (reason == "pass")] = "cell_area"
+        reasons["cell_area"] = reasons.get("cell_area", 0) + int(bad.sum())
     adata.obs[QC_PASS] = keep
     adata.obs[QC_FLAG] = pd.Categorical(np.where(keep, HIGH_QUALITY, LOW_QUALITY), categories=[HIGH_QUALITY, LOW_QUALITY])
+    adata.obs[QC_REASON] = pd.Categorical(reason)
     adata.uns["qc"] = {"min_counts": min_counts, "min_genes": min_genes, "max_control_frac": max_control_frac,
-                       "n_cells": int(n0), "n_low_quality": int((~keep).sum()), "reasons": reasons}
+                       "n_cells": int(n0), "n_low_quality": int((~keep).sum()), "reasons": reasons,
+                       "gene_count_column": "transcript_counts" if "transcript_counts" in adata.obs else "total_counts"}
     log.info("QC: %d / %d cells high quality (%d flagged low quality: %s)", int(keep.sum()), n0, int((~keep).sum()),
              ", ".join(f"{k}={v}" for k, v in reasons.items() if v))
     if filter:
