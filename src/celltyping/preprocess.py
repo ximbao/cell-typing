@@ -45,7 +45,7 @@ def _qc_control_counts(adata: ad.AnnData) -> np.ndarray | None:
     return None
 
 
-def qc_filter(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.1,
+def qc_filter(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.3,
               min_cell_area: float | None = None, max_cell_area: float | None = None, filter: bool = False) -> ad.AnnData:
     """Per-cell QC for imaging-based ST: **flags** cells instead of removing them.
 
@@ -152,7 +152,7 @@ def harmonize_var_names(adata: ad.AnnData) -> ad.AnnData:
     return adata
 
 
-def preprocess(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.1, target_sum: float | None = None) -> ad.AnnData:
+def preprocess(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.3, target_sum: float | None = None) -> ad.AnnData:
     adata = harmonize_var_names(adata)
     adata = qc_filter(adata, min_counts=min_counts, min_genes=min_genes, max_control_frac=max_control_frac)
     adata = normalize(adata, target_sum=target_sum)

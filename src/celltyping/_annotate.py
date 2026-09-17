@@ -18,7 +18,8 @@ from .utils import log
 
 def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None = None, tree: CellTypeTree | str | Path | None = None,
              method: str = "hierarchical", overrides: str | Path | Overrides | None = None, preprocess: bool | str = "auto",
-             min_counts: int = 20, knn_smooth: int | None = 15, min_score: float = 0.5, min_margin: float = 0.25, top_k: int | None = 30,
+             min_counts: int = 20, max_control_frac: float = 0.3, knn_smooth: int | None = 15, min_score: float = 0.5,
+             min_margin: float = 0.25, top_k: int | None = 30,
              key: str | None = None, knowledge_kwargs: dict | None = None, copy: bool = False, **method_kwargs) -> ad.AnnData:
     """Annotate cells with ontology-derived cell types for a tissue.
 
@@ -53,6 +54,9 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
         when missing.
     min_counts
         QC threshold: cells with ``transcript_counts < min_counts`` are flagged ``'low_quality'`` and labelled so.
+    max_control_frac
+        QC threshold on negative controls: ``control_frac > max_control_frac`` -> ``qc_reason='high_control_frac'``
+        (Xenium: ``control_probe_counts + genomic_control_counts`` over ``transcript_counts + controls``). ``None`` disables.
     knn_smooth
         Neighbours for expression smoothing before scoring (``None``/0 disables). Used only when preprocessing runs
         or when ``layers['knn_smooth']`` is absent.
@@ -83,15 +87,19 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
     if preprocess == "auto":
         preprocess = pp.is_raw_counts(adata)
         log.info("X %s raw counts -> preprocessing %s", "looks like" if preprocess else "does not look like", "on" if preprocess else "off")
+    qcfg = adata.uns.get("qc", {})
+    qc_stale = (pp.QC_PASS not in adata.obs or qcfg.get("min_counts") != min_counts
+                or qcfg.get("max_control_frac") != max_control_frac)
     if preprocess:
-        adata = pp.preprocess(adata, min_counts=min_counts, knn_smooth_k=knn_smooth, random_state=settings.random_state)
+        adata = pp.preprocess(adata, min_counts=min_counts, max_control_frac=max_control_frac, knn_smooth_k=knn_smooth,
+                              random_state=settings.random_state)
     else:
         pp.harmonize_genes(adata)
-        if pp.QC_PASS not in adata.obs or adata.uns.get("qc", {}).get("min_counts") != min_counts:
+        if qc_stale:
             old = adata.obs[pp.QC_PASS].to_numpy().copy() if pp.QC_PASS in adata.obs else None
-            pp.qc(adata, min_counts=min_counts)
+            pp.qc(adata, min_counts=min_counts, max_control_frac=max_control_frac)
             if old is not None and "knn_smooth" in adata.layers and not np.array_equal(old, adata.obs[pp.QC_PASS].to_numpy()):
-                log.info("QC flag changed (min_counts=%d); recomputing kNN smoothing", min_counts)
+                log.info("QC flag changed; recomputing kNN smoothing")
                 del adata.layers["knn_smooth"]
         if knn_smooth and "knn_smooth" not in adata.layers:
             pp.knn_smooth(adata, k=int(knn_smooth), random_state=settings.random_state)
@@ -125,7 +133,7 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
     adata.uns["celltyping"].update({
         "tissue": tree.meta.get("tissue"), "species": species, "method": method, "key": key, "label_column": label_col,
         "tree": json.dumps(tree.to_dict()), "n_types_called": int((counts > 0).sum()), "n_low_quality": n_low,
-        "min_counts": min_counts, "runtime_sec": round(time.perf_counter() - t0, 1),
+        "min_counts": min_counts, "max_control_frac": max_control_frac, "runtime_sec": round(time.perf_counter() - t0, 1),
     })
     top = ", ".join(f"{l} {c / adata.n_obs:.0%}" for l, c in counts.head(6).items())
     log.info("annotated %d cells (%d low quality) in %.0fs -> obs['%s'] (%d types; %s)", adata.n_obs, n_low, time.perf_counter() - t0,

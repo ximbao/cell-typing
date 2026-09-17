@@ -80,7 +80,7 @@ def load_and_preprocess(cfg: dict, ds: dict, subsample: int | None = None, seed:
         log.info("subsampled to %d cells", adata.n_obs)
     pcfg = cfg.get("preprocess", {})
     return pp.preprocess(adata, min_counts=pcfg.get("min_counts", 20), min_genes=pcfg.get("min_genes", 0),
-                         max_control_frac=pcfg.get("max_control_frac", 0.1), target_sum=pcfg.get("target_sum"),
+                         max_control_frac=pcfg.get("max_control_frac", 0.3), target_sum=pcfg.get("target_sum"),
                          knn_smooth_k=pcfg.get("knn_smooth", 15), n_pcs=pcfg.get("n_pcs", 30))
 
 

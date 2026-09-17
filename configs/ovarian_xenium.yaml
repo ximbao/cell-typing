@@ -28,7 +28,7 @@ datasets:
 preprocess:
   min_counts: 20                   # cells with fewer transcripts are flagged obs['qc_flag'] = low_quality (kept, not annotated)
   min_genes: 0
-  max_control_frac: 0.1
+  max_control_frac: 0.3
   target_sum: null
   knn_smooth: 15
 

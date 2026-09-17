@@ -31,7 +31,7 @@ datasets:
 preprocess:
   min_counts: 20
   min_genes: 10
-  max_control_frac: 0.1
+  max_control_frac: 0.3
   target_sum: null                 # median library size
   knn_smooth: 15                   # denoise expression over k expression-neighbours before per-cell scoring (0 = off)
 

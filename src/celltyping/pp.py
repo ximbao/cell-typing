@@ -39,7 +39,7 @@ def is_raw_counts(adata: ad.AnnData, layer: str | None = None, n_check: int = 20
     return bool(np.all(np.mod(sample, 1) == 0) and sample.max() >= 1)
 
 
-def preprocess(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.1,
+def preprocess(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_control_frac: float = 0.3,
                target_sum: float | None = None, knn_smooth_k: int | None = 15, n_pcs: int = 30,
                random_state: int = 0, filter: bool = False) -> ad.AnnData:
     """Full default preprocessing for imaging-based ST: harmonise gene symbols, QC flag (``obs['qc_flag']``;

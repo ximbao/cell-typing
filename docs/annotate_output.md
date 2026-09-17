@@ -2,7 +2,7 @@
 
 ```python
 ct.annotate(adata, tissue=None, species=None, tree=None, method="hierarchical", overrides=None,
-            preprocess="auto", min_counts=20, knn_smooth=15, min_score=0.5, min_margin=0.25, top_k=30,
+            preprocess="auto", min_counts=20, max_control_frac=0.3, knn_smooth=15, min_score=0.5, min_margin=0.25, top_k=30,
             key=None, knowledge_kwargs=None, copy=False, **method_kwargs)
 ```
 
@@ -21,6 +21,7 @@ labelled `low_quality`.
 | `overrides` | `None` | YAML file (or `Overrides` object) with curated tree edits: `add_cell_types`, `remove_cell_types`, `collapse_cell_types`, `parents`, `markers` (`add`/`remove`/`replace` per CL id), `custom_markers` (CSV). |
 | `preprocess` | `"auto"` | `"auto"`: normalise only if `X` looks like raw integer counts; `True`/`False` force it. Gene harmonisation and the QC flag are always applied when missing. |
 | `min_counts` | `20` | QC threshold: cells with `transcript_counts < min_counts` are flagged `low_quality` and excluded from smoothing, scoring and the benchmark. Uses `obs['transcript_counts']` (Xenium metadata when present, otherwise the sum of `X` / `layers['counts']`). Xenium's `total_counts` (gene + codewords) is not used. |
+| `max_control_frac` | `0.3` | Negative-control fraction threshold (`qc_reason='high_control_frac'`). `None` disables. |
 | `knn_smooth` | `15` | Number of expression neighbours (PCA space, high-quality cells only) whose log-expression is averaged with each cell before scoring; stored in `layers["knn_smooth"]`. `None`/`0` disables smoothing. Ignored if the layer already exists. |
 | `min_score` | `0.5` | Minimum signature score (in null-SD units, see below) for a cell type to be called. Below it a cell is `unassigned` (flat) or stays at the current node (hierarchical). |
 | `min_margin` | `0.25` | Minimum difference between the best and the second-best candidate (and, in the hierarchy, between the best child and the parent's own signature). Controls how readily cells descend to leaves. |
@@ -50,7 +51,7 @@ well-characterised leaf markers.
 | `var["original_symbol"]` | harmonisation | gene symbols as they were in the input; `var_names` are upper-cased |
 | `obs["transcript_counts"]` | QC | gene transcripts per cell; compared against `min_counts` |
 | `obs["n_genes_by_counts"]` | QC | detected genes per cell |
-| `obs["control_frac"]` | QC | fraction of control-probe counts, when the reader provided `obs["control_counts"]` |
+| `obs["control_frac"]` | QC | negative-control fraction: `(control_probe_counts + genomic_control_counts) / (transcript_counts + controls)` on Xenium; flagged when `> max_control_frac` (default **0.3**) |
 | `obs["qc_pass"]` | QC | `True` for high-quality cells |
 | `obs["qc_flag"]` | QC | categorical `high_quality` / `low_quality` |
 | `uns["qc"]` | QC | thresholds, number of low-quality cells and the reason counts (`low_counts`, `few_genes`, `control_probes`) |
