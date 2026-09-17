@@ -61,7 +61,7 @@ What happened, step by step (each step is also a public function, see below):
 | step | what it does | where the result lives |
 |------|--------------|------------------------|
 | gene harmonisation | upper-cases gene symbols so they match the marker databases | `var["original_symbol"]` keeps the originals |
-| **QC flag** | cells with `total_counts < 20` are flagged `low_quality`; they are kept but excluded from every later step | `obs["qc_flag"]`, `obs["qc_pass"]`, `uns["qc"]` |
+| **QC flag** | cells with `transcript_counts < 20` are flagged `low_quality`; they are kept but excluded from every later step | `obs["qc_flag"]`, `obs["qc_pass"]`, `obs["qc_reason"]`, `uns["qc"]` |
 | normalisation | `normalize_total` + `log1p`; raw counts kept | `X` (log-normalised), `layers["counts"]` |
 | kNN smoothing | each high-quality cell's expression is averaged with its 15 nearest expression neighbours (Xenium/CosMx counts are sparse; a cell shows only a few of its marker genes) | `layers["knn_smooth"]` |
 | knowledge | tissue -> expected cell types (Cell Ontology / Uberon, CZ CELLxGENE Census) -> marker hierarchy restricted to the genes of *this* panel; cached, so the next dataset with the same panel reuses it | `uns["celltyping"]["tree"]` |

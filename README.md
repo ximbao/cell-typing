@@ -43,7 +43,7 @@ adata.obs["hier_label"].value_counts()                   # 'low_quality' = faile
 ct.pl.spatial(adata, "hier_label")
 ```
 
-Cells with fewer than 20 transcripts (`min_counts`) are flagged `obs["qc_flag"] == "low_quality"`, kept in the
+Cells with fewer than 20 gene transcripts (`obs["transcript_counts"] < min_counts`) are flagged `obs["qc_flag"] == "low_quality"`, kept in the
 object, and excluded from smoothing, scoring and benchmarking. See the [tutorial](docs/tutorial.md), the
 [output reference](docs/annotate_output.md) and the [benchmarking guide](docs/benchmarking.md).
 
@@ -135,7 +135,7 @@ annotate_flat, annotate_clusters}`, `celltyping.benchmark.*`.
   per-gene z-scores (with an SD floor); on sparse imaging data they let rarely detected genes dominate a set from a
   single count and performed clearly worse on the ovarian benchmark (root-level accuracy 0.66 -> 0.80 for centring).
   `mean_z`, and `ulm`/`aucell` via `decoupler`, are available with `annotate.method`.
-- QC does not remove cells: `pp.qc` flags cells with `total_counts < min_counts` (default 20) as `low_quality`
+- QC does not remove cells: `pp.qc` flags cells with `transcript_counts < min_counts` (default 20) as `low_quality`
   (`obs['qc_flag']`, `obs['qc_pass']`); smoothing neighbours are searched among high-quality cells only, the
   annotators label low-quality cells `low_quality` and the benchmark excludes them. `filter=True` removes them instead.
 - Xenium/CosMx counts are sparse; `preprocess.knn_smooth: k` averages each cell with its k expression neighbours

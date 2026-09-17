@@ -79,6 +79,20 @@ def test_qc_flag_propagates(toy_adata, toy_tree):
     assert a.obs["hier_score"].notna().sum() > 0
 
 
+def test_qc_min_counts_uses_transcript_counts_not_total_counts():
+    import anndata as ad
+    import numpy as np
+    a = ad.AnnData(X=np.array([[50, 0], [50, 0], [5, 0]], dtype=float),
+                   obs=pd.DataFrame({
+                       "transcript_counts": [15.0, 25.0, 5.0],
+                       "total_counts": [80.0, 90.0, 40.0],  # Xenium total (gene + codewords) -- not used for QC
+                   }))
+    ct.pp.qc(a, min_counts=20)
+    assert a.obs["qc_pass"].tolist() == [False, True, False]
+    assert a.obs["qc_reason"].tolist() == ["low_counts", "pass", "low_counts"]
+    assert a.uns["qc"]["count_column"] == "transcript_counts"
+
+
 def test_qc_xenium_control_counts_not_all_codewords(toy_adata):
     import anndata as ad
     import numpy as np

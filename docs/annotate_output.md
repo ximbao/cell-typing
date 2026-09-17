@@ -48,7 +48,8 @@ well-characterised leaf markers.
 | location | added by | content |
 |----------|----------|---------|
 | `var["original_symbol"]` | harmonisation | gene symbols as they were in the input; `var_names` are upper-cased |
-| `obs["total_counts"]`, `obs["n_genes_by_counts"]` | QC | transcripts and detected genes per cell (from counts) |
+| `obs["transcript_counts"]` | QC | gene transcripts per cell; compared against `min_counts` |
+| `obs["n_genes_by_counts"]` | QC | detected genes per cell |
 | `obs["control_frac"]` | QC | fraction of control-probe counts, when the reader provided `obs["control_counts"]` |
 | `obs["qc_pass"]` | QC | `True` for high-quality cells |
 | `obs["qc_flag"]` | QC | categorical `high_quality` / `low_quality` |

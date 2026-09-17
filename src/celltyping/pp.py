@@ -43,7 +43,7 @@ def preprocess(adata: ad.AnnData, min_counts: int = 20, min_genes: int = 0, max_
                target_sum: float | None = None, knn_smooth_k: int | None = 15, n_pcs: int = 30,
                random_state: int = 0, filter: bool = False) -> ad.AnnData:
     """Full default preprocessing for imaging-based ST: harmonise gene symbols, QC flag (``obs['qc_flag']``;
-    ``total_counts < min_counts`` -> ``'low_quality'``), ``normalize_total`` + ``log1p`` (raw counts kept in
+    ``transcript_counts < min_counts`` -> ``'low_quality'``), ``normalize_total`` + ``log1p`` (raw counts kept in
     ``layers['counts']``), then kNN expression smoothing over high-quality cells into ``layers['knn_smooth']``
     (skip with ``knn_smooth_k=None``). Low-quality cells are kept unless ``filter=True``."""
     adata = harmonize_genes(adata)

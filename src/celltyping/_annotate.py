@@ -27,7 +27,8 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
     1. **knowledge** -- :func:`celltyping.tl.knowledge`: tissue -> expected cell types (Cell Ontology / Uberon,
        marker databases, CZ CELLxGENE Census) -> marker hierarchy restricted to the genes in ``adata``; cached.
     2. **preprocess** -- gene-symbol harmonisation and the QC flag (``obs['qc_flag']``: cells with fewer than
-       ``min_counts`` transcripts are ``'low_quality'`` and excluded from everything downstream); if ``X`` holds raw
+       ``min_counts`` gene transcripts (``obs['transcript_counts']``) are ``'low_quality'`` and excluded from everything
+       downstream); if ``X`` holds raw
        counts also ``normalize_total`` + ``log1p`` (counts kept in ``layers['counts']``); then kNN expression smoothing
        over high-quality cells (``layers['knn_smooth']``).
     3. **annotate** -- ``'hierarchical'`` (default; top-down through the tree), ``'flat'`` (all leaves at once)
@@ -51,7 +52,7 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
         ``'auto'`` (normalise only if ``X`` looks like raw counts), ``True`` or ``False``. The QC flag is always added
         when missing.
     min_counts
-        QC threshold: cells with ``total_counts < min_counts`` are flagged ``'low_quality'`` and labelled so.
+        QC threshold: cells with ``transcript_counts < min_counts`` are flagged ``'low_quality'`` and labelled so.
     knn_smooth
         Neighbours for expression smoothing before scoring (``None``/0 disables). Used only when preprocessing runs
         or when ``layers['knn_smooth']`` is absent.
