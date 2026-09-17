@@ -1,0 +1,44 @@
+# Ring14 syndrome cohort: human brain, Xenium Prime 5K + 50-gene custom add-on (hBrain_50g)
+name: ring14_brain
+species: human
+tissue: brain                      # free text or UBERON id; `celltyping search-tissue brain` to check
+panel: /mnt/scratch2/Ring14-Xenium/0067691_eshn_ctrol_10_b/gene_panel.json
+output_dir: ../results/ring14_brain
+
+knowledge:
+  overrides: overrides_brain.yaml
+  sources: [CellMarker2, PanglaoDB, ASCT+B, CellGuide]   # CellGuide = CZ CELLxGENE computational markers
+  census: true                     # CZ CELLxGENE Census observations seed cell types (needs cellxgene-census)
+  census_disease: normal           # healthy samples only ('any' to include disease datasets)
+  census_min_cells: 200
+  census_min_datasets: 2
+  census_min_frac: 0.001           # of the tissue's Census cells
+  ancestor_levels: 1               # brain -> central nervous system (hits there need DB corroboration)
+  min_db_sources: 2                # DB-only cell types must be annotated to brain by >= 2 databases
+  min_markers: 5                   # with a 5k panel, 3 random hits are too easy
+  max_depth: 5
+  collapse_single_child: true
+  propagate_shared_to_parent: true
+
+datasets:
+  - {name: ctrl_6_b,        path: /mnt/scratch2/Ring14-Xenium/0067689_eshn_ctrl_6_b,        platform: xenium, condition: control}
+  - {name: ctrl_10_b,       path: /mnt/scratch2/Ring14-Xenium/0067691_eshn_ctrol_10_b,      platform: xenium, condition: control}
+  - {name: ctrl_1247_a,     path: /mnt/scratch2/Ring14-Xenium/0068168_eshn_ctrl_1247_a,     platform: xenium, condition: control}
+  - {name: abnormal_6_a,    path: /mnt/scratch2/Ring14-Xenium/0067689_nv7_abnormal_6_a,     platform: xenium, condition: ring14}
+  - {name: abnormal_10_a,   path: /mnt/scratch2/Ring14-Xenium/0067691_nv7_abnormal_10_a,    platform: xenium, condition: ring14}
+  - {name: abnormal_46_a,   path: /mnt/scratch2/Ring14-Xenium/0068171_nv7_abnormal_46_a,    platform: xenium, condition: ring14}
+
+preprocess:
+  min_counts: 20
+  min_genes: 10
+  max_control_frac: 0.1
+  target_sum: null                 # median library size
+  knn_smooth: 15                   # denoise expression over k expression-neighbours before per-cell scoring (0 = off)
+
+annotate:
+  method: robust_z                 # robust_z | mean_z | ulm | aucell
+  top_k: 30                        # highest-weighted panel markers used per cell type
+  # robust_z scores are in null-SD units: min_score 0.5 = half an SD above random gene sets
+  hierarchical: {min_score: 0.5, min_margin: 0.25, min_cells: 20, rescore_per_node: true, subtree_signatures: true, parent_as_competitor: true}
+  flat:         {level: leaves, min_score: 0.5, min_margin: 0.25}
+  cluster:      {resolutions: [0.5, 1.0], level: leaves, min_score: 0.2, min_margin: 0.1, n_top_de: 25}

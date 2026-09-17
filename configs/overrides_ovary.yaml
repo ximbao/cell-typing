@@ -1,0 +1,84 @@
+# Curation for an ovarian (high-grade serous) carcinoma Xenium Prime 5K section.
+# The ontology gives the normal ovary; a tumour section additionally needs the malignant
+# compartment and the stromal / immune / vascular types that any solid tissue carries.
+# NB: the Prime 5K panel omits many very highly expressed canonical genes (keratins, collagens,
+# ACTA2, PTPRC, VWF, LYZ ...); curated lists below use panel genes.
+
+add_cell_types:
+  # tumour compartment (Cell Ontology: abnormal cell > neoplastic cell > malignant cell)
+  - {id: "CL:0001064"}                  # malignant cell
+  # normal epithelium a HGSC section can carry (fallopian tube, inclusion cysts, Müllerian-type epithelium)
+  - {id: "CL:4052018"}                  # fallopian tube epithelial cell
+  - {id: "CL:4030007", parent: "CL:4052018"}   # fallopian tube multiciliated epithelial cell
+  - {id: "CL:0000731"}                  # urothelial cell (transitional / Brenner-like epithelium)
+  - {id: "CL:0000077"}                  # mesothelial cell
+  # stroma / vessels
+  - {id: "CL:0000057"}                  # fibroblast
+  - {id: "CL:0000192"}                  # smooth muscle cell
+  - {id: "CL:0000115"}                  # endothelial cell
+  - {id: "CL:0000669"}                  # pericyte
+  # immune
+  - {id: "CL:0000235"}                  # macrophage
+  - {id: "CL:0000084"}                  # T cell
+  - {id: "CL:0000623"}                  # natural killer cell
+  - {id: "CL:0000236"}                  # B cell
+  - {id: "CL:0000786"}                  # plasma cell
+  - {id: "CL:0000097"}                  # mast cell
+  - {id: "CL:0000451"}                  # dendritic cell
+
+remove_cell_types:
+  - "CL:0001061"   # abnormal cell (abstract; malignant cell is re-attached to root below)
+  - "CL:0000586"   # germ cell / oocyte lineage: not present in a carcinoma section
+  - "CL:0002239"   # ooblast
+  - "CL:0000540"   # neuron (nerve fibres are not segmented as cells here)
+  - "CL:0002319"   # neural cell
+  - "CL:0000163"   # endocrine cell (DB rows are pancreatic)
+  - "CL:0000165"   # neuroendocrine cell
+  - "CL:0000166"   # chromaffin cell
+  - "CL:1000465"   # chromaffin cell of ovary
+  - "CL:0002095"   # hilus cell of ovary
+  - "CL:0008034"   # mural cell (7 unrelated DB markers; smooth muscle + pericyte cover it)
+  - "CL:1001591"   # oviduct secretory cell (not separable from its parent with this panel)
+  - "CL:0000477"   # follicle cell of egg chamber (Drosophila term reached via 'follicle')
+  - "CL:0000579"   # border follicle cell (Drosophila)
+  - "CL:0000671"   # centripetally migrating follicle cell (Drosophila)
+  - "CL:0000674"   # interfollicle cell (Drosophila)
+  - "CL:0007022"   # micropylar cell (Drosophila)
+
+collapse_cell_types:
+  - "CL:0001063"   # neoplastic cell (abstract)
+  - "CL:0000064"   # ciliated cell (generic; the multiciliated fallopian tube cell is the target)
+  - "CL:0000067"   # ciliated epithelial cell (generic)
+  - "CL:0000145"   # professional antigen presenting cell
+  - "CL:0000763"   # myeloid cell
+  - "CL:0000842"   # mononuclear leukocyte
+  - "CL:0000113"   # mononuclear phagocyte
+  - "CL:0002174"   # follicular cell of ovary (abstract grouping of granulosa/theca)
+
+parents:
+  "CL:0001064": "CL:0000000"           # malignant cell directly under root (tumour vs normal Müllerian epithelium is not separable inside one subtree with markers alone)
+  "CL:4052018": "CL:0000066"           # fallopian tube epithelial cell under epithelial cell
+  "CL:0000731": "CL:0000066"           # urothelial cell under epithelial cell
+  "CL:0000077": "CL:0000066"           # mesothelial cell under epithelial cell
+  "CL:0000669": "CL:0000192"           # pericyte grouped with smooth muscle (mural)
+
+markers:
+  # HGSC tumour: Müllerian lineage TFs + epithelial programme. Database rows for 'malignant cell'
+  # are pan-cancer (CD163, CCR7, PIK3CA ...) and are replaced entirely.
+  "CL:0001064": {replace: [PAX8, WT1, MUC16, EPCAM, MSLN, SOX17, CP, FOLR1, MECOM, CDH1, MUC1, CLDN7, EHF, LAMB3, ESR1]}
+  "CL:4052018": {add: [PAX8, EPCAM, CDH1, MUC1, CLDN7, EHF, SOX17, ESR1, PGR, FOXA2]}
+  "CL:4030007": {add: [FOXJ1, TPPP3, DNAH5, DNAI1, DNAH9, CFAP299, RSPH4A, SPAG6]}
+  "CL:0000731": {add: [UPK2, UPK1A, UPK3B, GATA3, TP63, KRT20]}
+  "CL:0000077": {add: [MSLN, UPK3B, CALB2, PDPN, WT1, PRG4, HAS1]}
+  "CL:0000057": {add: [DCN, LUM, PDGFRA, FAP, POSTN, THY1, COL11A1, CTHRC1, MMP11, COL6A3, FBLN1, C7]}
+  "CL:0000192": {add: [MYH11, CNN1, MYLK, DES, ACTG2, LMOD1, SYNPO2, MYOCD]}
+  "CL:0000669": {add: [RGS5, PDGFRB, KCNJ8, ABCC9, NOTCH3, CSPG4, MCAM]}
+  "CL:0000115": {add: [PECAM1, CLDN5, FLT1, CDH5, KDR, PLVAP, ENG, ERG, EGFL7]}
+  "CL:0000235": {add: [CD68, CD163, C1QC, MRC1, CD14, FCGR3A, TREM2, MS4A4A, CSF1R, MSR1]}
+  "CL:0000084": {add: [CD3E, CD3D, CD3G, CD2, TRAC, CD8A, CD4, IL7R, CD247]}
+  "CL:0000623": {add: [KLRD1, NCAM1, PRF1, GZMB, GZMA, KLRF1, NCR1, FCGR3A]}
+  "CL:0000236": {add: [MS4A1, CD79A, CD19, BANK1, PAX5]}
+  "CL:0000786": {add: [MZB1, XBP1, PRDM1, IRF4, TNFRSF17]}
+  "CL:0000097": {add: [KIT, MS4A2, HDC, HPGDS, CMA1]}
+
+custom_markers: null

@@ -1,0 +1,67 @@
+# 10x Xenium Prime 5K, human ovarian cancer FFPE, with expert cell-type annotation (obs['cell_type']).
+name: ovarian_xenium
+species: human
+tissue: ovary
+panel: /mnt/scratch2/Chloe/Biohackathon/Dataset_5/ValidationDataset/Xenium_Prime_Ovarian_Cancer_FFPE_XRrun_outs/gene_panel.json
+output_dir: ../results/ovarian_xenium
+
+knowledge:
+  overrides: overrides_ovary.yaml
+  sources: [CellMarker2, PanglaoDB, ASCT+B, CellGuide]   # CellGuide = CZ CELLxGENE computational markers
+  census: true                     # CZ CELLxGENE Census observations seed cell types (needs cellxgene-census)
+  census_disease: normal           # healthy samples only ('any' to include disease datasets)
+  census_min_cells: 200
+  census_min_datasets: 2
+  census_min_frac: 0.001           # of the tissue's Census cells
+  ancestor_levels: 1               # ovary -> female reproductive system
+  min_db_sources: 2
+  min_markers: 5
+  max_depth: 5
+  collapse_single_child: true
+  propagate_shared_to_parent: true
+
+datasets:
+  - name: ov_validation
+    path: /mnt/scratch2/Chloe/Biohackathon/Dataset_5/ValidationDataset/Xenium_Prime_Ovarian_Cancer_FFPE_XRrun_outs/ov_validation.h5ad
+    platform: h5ad
+
+preprocess:
+  min_counts: 20                   # cells with fewer transcripts are flagged obs['qc_flag'] = low_quality (kept, not annotated)
+  min_genes: 0
+  max_control_frac: 0.1
+  target_sum: null
+  knn_smooth: 15
+
+annotate:
+  method: robust_z
+  top_k: 30
+  scoring: {scale: center, top_frac: 0.5}   # mean-centred log expression (no per-gene z), top half of a set's genes
+  hierarchical: {min_score: 0.5, min_margin: 0.25, min_cells: 20, rescore_per_node: true, subtree_signatures: true, parent_as_competitor: true, subtree_mode: union}  # subtree_mode: union | max (max = per-cell best member of a heterogeneous subtree)
+  flat:         {level: leaves, min_score: 0.5, min_margin: 0.25}
+  cluster:      {resolutions: [0.5, 1.0], level: leaves, min_score: 0.2, min_margin: 0.1, n_top_de: 25}
+
+# Expert annotation used as reference. Labels are mapped onto Cell Ontology ids present in the tree;
+# unmapped / ignored labels are excluded from agreement metrics (but still counted in the confusion tables).
+benchmark:
+  reference_column: cell_type
+  ignore_labels: [Unassigned]
+  reference_map:
+    "Tumor Cells":                          "CL:0001064"   # malignant cell
+    "Proliferative Tumor Cells":            "CL:0001064"
+    "SOX2-OT+ Tumor Cells":                 "CL:0001064"
+    "VEGFA+ Tumor Cells":                   "CL:0001064"
+    "Inflammatory Tumor Cells":             "CL:0001064"
+    "Malignant Cells Lining Cyst":          "CL:0001064"
+    "Fallopian Tube Epithelium":            "CL:4052018"   # fallopian tube epithelial cell
+    "Ciliated Epithelial Cells":            "CL:4030007"   # fallopian tube multiciliated epithelial cell
+    "Urothelial-like Cells":                "CL:0000731"   # urothelial cell
+    "Tumor Associated Fibroblasts":         "CL:0000057"   # fibroblast
+    "Stromal Associated Fibroblasts":       "CL:0000057"
+    "Smooth Muscle Cells":                  "CL:0000192"   # smooth muscle cell
+    "Pericytes":                            "CL:0000669"   # pericyte
+    "Stromal Associated Endothelial Cells": "CL:0000115"   # endothelial cell
+    "Tumor Associated Endothelial Cells":   "CL:0000115"
+    "Macrophages":                          "CL:0000235"   # macrophage
+    "T and NK Cells":                       "CL:0000542"   # lymphocyte (T cell and NK cell are its children)
+  # spatial coherence: fraction of a cell's k nearest spatial neighbours sharing its label
+  spatial_k: 10

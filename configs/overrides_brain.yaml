@@ -1,0 +1,67 @@
+# Optional curation layered on top of the ontology + marker databases.
+# Everything here is optional; an empty file is valid.
+
+# Make sure these cell types are in the tree even if no source lists them for the tissue.
+add_cell_types:
+  - {id: "CL:0000127"}                  # astrocyte
+  - {id: "CL:0000128"}                  # oligodendrocyte
+  - {id: "CL:0002453"}                  # oligodendrocyte precursor cell
+  - {id: "CL:0000129"}                  # microglial cell
+  - {id: "CL:0000679"}                  # glutamatergic neuron
+  - {id: "CL:0000617"}                  # GABAergic neuron
+  - {id: "CL:0000115"}                  # endothelial cell
+  - {id: "CL:0000669"}                  # pericyte
+  - {id: "CL:0000359"}                  # vascular associated smooth muscle cell
+  - {id: "CL:0000057"}                  # fibroblast
+  - {id: "CL:0000065"}                  # ependymal cell
+  - {id: "CL:0000084"}                  # T cell
+  - {id: "CL:0000235"}                  # macrophage
+
+# Remove (with subtree) cell types that are irrelevant for this dataset.
+# These reach the brain tree through mis-annotated / tumour-context database rows.
+remove_cell_types:
+  - "CL:0000163"   # endocrine cell
+  - "CL:0000166"   # chromaffin cell
+  - "CL:0002311"   # mammotroph
+  - "CL:0000064"   # ciliated cell
+  - "CL:0000067"   # ciliated epithelial cell
+  - "CL:0000031"   # neuroblast (sensu Vertebrata)
+  - "CL:4023169"   # trigeminal neuron
+  - "CL:0000101"   # sensory neuron
+  - "CL:0000100"   # motor neuron
+  - "CL:0000108"   # cholinergic neuron
+  - "CL:0007011"   # enteric neuron
+  - "CL:0000165"   # neuroendocrine cell
+  - "CL:0000652"   # pinealocyte
+  # adult post-mortem tissue: stem/progenitor states below are rare and act as sinks for noisy cells
+  - "CL:0011026"   # progenitor cell (abstract; DB markers are pancreatic/haematopoietic)
+  - "CL:0000047"   # neural stem cell
+  - "CL:4023072"   # brain vascular cell (poorly characterised catch-all)
+
+# Remove a node but keep its children (re-attached to the grandparent): abstract groupings.
+collapse_cell_types:
+  - "CL:0000145"   # professional antigen presenting cell
+  - "CL:0000763"   # myeloid cell
+  - "CL:0000842"   # mononuclear leukocyte
+  - "CL:0000113"   # mononuclear phagocyte
+  - "CL:0000066"   # epithelial cell (own DB markers are mucosal; ependymal/choroid plexus move to root)
+
+# Force a parent in the tree (child: parent).
+parents:
+  "CL:0000129": "CL:0000125"           # microglial cell under glial cell
+
+# Add/remove markers for a node (CL id or label).
+markers:
+  "CL:0000127": {add: [GFAP, AQP4, SLC1A2, ALDH1L1, GJA1]}
+  "CL:0000128": {add: [MBP, PLP1, MOG, MOBP, ST18]}
+  "CL:0002453": {add: [PDGFRA, VCAN, PTPRZ1, OLIG1, OLIG2]}
+  "CL:0000129": {add: [CX3CR1, P2RY12, CSF1R, TMEM119, C1QB]}
+  "CL:0000679": {add: [SLC17A7, SATB2, CUX2, RORB, THEMIS, FEZF2]}
+  "CL:0000617": {add: [GAD1, GAD2, SST, PVALB, VIP, LAMP5, ADARB2, LHX6]}
+  "CL:0000115": {add: [CLDN5, FLT1, PECAM1, VWF]}
+  "CL:0000669": {add: [PDGFRB, RGS5, KCNJ8, ABCC9]}
+  "CL:0000359": {add: [ACTA2, MYH11, TAGLN]}
+  "CL:0000065": {add: [FOXJ1, CFAP299, DNAH9]}
+
+# Extra markers file (csv/tsv with cl_id|cell_label, gene[, weight]  or  yaml {cl_id_or_label: [genes]})
+custom_markers: null
