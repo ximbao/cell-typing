@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import anndata as ad
+import numpy as np
 
 from . import pp, tl
 from .knowledge.build import Overrides
@@ -85,8 +86,12 @@ def annotate(adata: ad.AnnData, tissue: str | None = None, species: str | None =
         adata = pp.preprocess(adata, min_counts=min_counts, knn_smooth_k=knn_smooth, random_state=settings.random_state)
     else:
         pp.harmonize_genes(adata)
-        if pp.QC_PASS not in adata.obs:
+        if pp.QC_PASS not in adata.obs or adata.uns.get("qc", {}).get("min_counts") != min_counts:
+            old = adata.obs[pp.QC_PASS].to_numpy().copy() if pp.QC_PASS in adata.obs else None
             pp.qc(adata, min_counts=min_counts)
+            if old is not None and "knn_smooth" in adata.layers and not np.array_equal(old, adata.obs[pp.QC_PASS].to_numpy()):
+                log.info("QC flag changed (min_counts=%d); recomputing kNN smoothing", min_counts)
+                del adata.layers["knn_smooth"]
         if knn_smooth and "knn_smooth" not in adata.layers:
             pp.knn_smooth(adata, k=int(knn_smooth), random_state=settings.random_state)
 

@@ -138,11 +138,13 @@ def get_tree(adata: ad.AnnData) -> CellTypeTree:
 
 
 # --------------------------------------------------------------------------- annotators
-def _on_high_quality(adata: ad.AnnData, fn, label_suffixes=("_label", "_id", "_level")):
+def _on_high_quality(adata: ad.AnnData, fn, key: str | None = None, label_suffixes=("_label", "_id", "_level")):
     """Run ``fn(sub)`` on the high-quality cells only and write its results back into ``adata``.
 
-    New ``obs`` columns are transferred with ``'low_quality'`` in label/id columns and NaN in numeric ones; new
-    ``obsm`` tables are re-indexed to all cells (NaN rows); new ``uns`` entries are copied. Returns ``fn``'s result.
+    ``obs`` columns that are new or start with ``key + '_'`` (so re-running a method overwrites its previous result)
+    are transferred with ``'low_quality'`` in label/id columns and NaN in numeric ones; ``obsm`` tables are
+    re-indexed to all cells (NaN rows); ``uns`` entries are copied. Assignment is positional, so duplicated
+    ``obs_names`` are safe. Returns ``fn``'s result.
     """
     mask = qc_mask(adata)
     if mask is None:
@@ -150,26 +152,36 @@ def _on_high_quality(adata: ad.AnnData, fn, label_suffixes=("_label", "_id", "_l
     sub = adata[mask].copy()
     before_obs, before_obsm, before_uns = set(adata.obs.columns), set(adata.obsm.keys()), set(adata.uns.keys())
     out = fn(sub)
-    for c in [c for c in sub.obs.columns if c not in before_obs]:
+    prefix = f"{key}_" if key else None
+
+    def _touched(name, before):
+        return name not in before or (prefix is not None and str(name).startswith(prefix))
+
+    for c in [c for c in sub.obs.columns if _touched(c, before_obs)]:
         col = sub.obs[c]
         if any(suf in c for suf in label_suffixes) and not pd.api.types.is_numeric_dtype(col):
-            full = pd.Series(LOW_QUALITY, index=adata.obs_names, dtype=object)
-            full[sub.obs_names] = col.astype(str).to_numpy()
+            full = np.full(adata.n_obs, LOW_QUALITY, dtype=object)
+            full[mask] = col.astype(str).to_numpy()
             adata.obs[c] = pd.Categorical(full) if isinstance(col.dtype, pd.CategoricalDtype) else full
-        else:
-            full = pd.Series(np.nan, index=adata.obs_names, dtype=float) if pd.api.types.is_numeric_dtype(col) \
-                else pd.Series(None, index=adata.obs_names, dtype=object)
-            full[sub.obs_names] = col.to_numpy()
+        elif pd.api.types.is_numeric_dtype(col):
+            full = np.full(adata.n_obs, np.nan, dtype=float)
+            full[mask] = col.to_numpy(dtype=float)
             adata.obs[c] = full
-    for k in [k for k in sub.obsm.keys() if k not in before_obsm]:
+        else:
+            full = np.full(adata.n_obs, None, dtype=object)
+            full[mask] = col.to_numpy()
+            adata.obs[c] = full
+    for k in [k for k in sub.obsm.keys() if _touched(k, before_obsm)]:
         v = sub.obsm[k]
         if isinstance(v, pd.DataFrame):
-            adata.obsm[k] = v.reindex(adata.obs_names)
+            arr = pd.DataFrame(np.nan, index=adata.obs_names, columns=v.columns, dtype=float)
+            arr.iloc[np.where(mask)[0]] = v.to_numpy()
+            adata.obsm[k] = arr
         else:
             arr = np.full((adata.n_obs, v.shape[1]), np.nan, dtype=np.float32)
             arr[mask] = v
             adata.obsm[k] = arr
-    for k in [k for k in sub.uns.keys() if k not in before_uns]:
+    for k in [k for k in sub.uns.keys() if _touched(k, before_uns)]:
         adata.uns[k] = sub.uns[k]
     log.info("%d low-quality cells labelled '%s'", int((~mask).sum()), LOW_QUALITY)
     return out
@@ -197,7 +209,7 @@ def hierarchical(adata: ad.AnnData, tree: CellTypeTree, method: str = "robust_z"
     _on_high_quality(adata, lambda a: _hier(a, tree, method=method, min_score=min_score, min_margin=min_margin, min_cells=min_cells,
                                             rescore_per_node=rescore_per_node, top_k=top_k, subtree_signatures=subtree_signatures,
                                             parent_as_competitor=parent_as_competitor, layer=_layer(a, layer), key=key, smooth=smooth,
-                                            scoring_kwargs=sk, subtree_mode=subtree_mode))
+                                            scoring_kwargs=sk, subtree_mode=subtree_mode), key=key)
     return adata
 
 
@@ -208,7 +220,7 @@ def flat(adata: ad.AnnData, tree: CellTypeTree, level: str | int = "leaves", met
     the classical prior-knowledge baseline. Results: ``obs[key+'_label'|'_score'|'_margin']``, ``obsm[key+'_scores']``."""
     sk = {"scale": scale, "top_frac": top_frac, **scoring_kwargs}
     _on_high_quality(adata, lambda a: _flat(a, tree, level=level, method=method, min_score=min_score, min_margin=min_margin,
-                                            top_k=top_k, layer=_layer(a, layer), key=key, scoring_kwargs=sk))
+                                            top_k=top_k, layer=_layer(a, layer), key=key, scoring_kwargs=sk), key=key)
     return adata
 
 
@@ -220,7 +232,7 @@ def clusters(adata: ad.AnnData, tree: CellTypeTree, resolutions: tuple[float, ..
     Returns the per-resolution cluster->label tables; edit them and apply with :func:`apply_manual_labels`."""
     return _on_high_quality(adata, lambda a: _clusters(a, tree, resolutions=tuple(resolutions), level=level, min_score=min_score,
                                                        min_margin=min_margin, n_top_de=n_top_de, top_k=top_k, key=key,
-                                                       random_state=settings.random_state if random_state is None else random_state))
+                                                       random_state=settings.random_state if random_state is None else random_state), key=key)
 
 
 def score(adata: ad.AnnData, tree: CellTypeTree, nodes: list[str] | None = None, method: str = "robust_z", top_k: int | None = 30,
@@ -234,7 +246,7 @@ def score(adata: ad.AnnData, tree: CellTypeTree, nodes: list[str] | None = None,
         df.columns = [tree.nodes[c].label if c in tree.nodes else c for c in df.columns]
         a.obsm[key] = df
 
-    _on_high_quality(adata, _run)
+    _on_high_quality(adata, _run, key=key)
     return adata.obsm[key]
 
 

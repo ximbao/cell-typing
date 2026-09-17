@@ -73,6 +73,20 @@ def test_qc_flag_propagates(toy_adata, toy_tree):
     # filter=True removes them instead
     b = ct.pp.qc(_counts_adata(toy_adata), min_counts=1_000_000, filter=True)
     assert b.n_obs == 0
+    # re-running with a different threshold recomputes the flag and overwrites the previous labels
+    ct.annotate(a, tree=toy_tree, min_cells=10, knn_smooth=None, min_counts=1)
+    assert a.obs["qc_pass"].all() and (a.obs["hier_label"].astype(str) != "low_quality").all()
+    assert a.obs["hier_score"].notna().sum() > 0
+
+
+def test_qc_duplicate_obs_names(toy_adata, toy_tree):
+    a = _counts_adata(toy_adata)
+    a.X[:10] = 0
+    a.obs_names = ["c"] * a.n_obs  # pathological but must not misalign
+    ct.pp.preprocess(a, min_counts=20, knn_smooth_k=None)
+    ct.tl.flat(a, toy_tree, layer=None)
+    assert (a.obs["flat_label"].astype(str).to_numpy()[:10] == "low_quality").all()
+    assert (a.obs["flat_label"].astype(str).to_numpy()[10:] != "low_quality").all()
 
 
 def test_annotate_with_prebuilt_tree(toy_adata, toy_tree):
